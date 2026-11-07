@@ -1,0 +1,821 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Butt Box</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Layout: one-screen arcade app. Top bar, canvas stage, touch pad. Menu and shop sit over the stage. */
+:root{
+  --sky:#8fd3ff; --ink:#2b2140; --ink-2:#3d3260; --cardboard:#d9a066; --cardboard-dk:#9c6634;
+  --flag:#e63946; --flag-dk:#8f1c25; --coin:#ffc23c; --paper:#fffaf0; --slate:#4c4f7d; --muted:#6b6488;
+  --display:"Lilita One","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;
+  --body:"Nunito",ui-rounded,system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ink);color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--coin);outline-offset:2px}
+#app{position:relative;height:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;background:var(--sky)}
+
+.bar{display:flex;align-items:center;gap:8px;padding-block:10px;padding-inline:16px;background:var(--ink);color:var(--paper)}
+.logo{font-family:var(--display);font-size:22px;letter-spacing:.02em;flex:1;min-width:0;white-space:nowrap}
+.logo span{color:var(--cardboard)}
+.pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border-radius:999px;padding:4px 12px 4px 5px;font-weight:900;font-size:16px;font-variant-numeric:tabular-nums}
+.coin{width:20px;height:20px;border-radius:50%;background:var(--coin);box-shadow:inset 0 0 0 3px #e09b12,inset 0 0 0 5px #ffd96b;display:inline-block;flex:none}
+.tbtn{border:0;background:var(--ink-2);color:var(--paper);border-radius:12px;height:36px;padding:0 12px;font-weight:900;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+.tbtn svg{width:18px;height:18px}
+
+#stage{position:relative;flex:1;min-height:0;overflow:hidden}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#hud{position:absolute;left:12px;top:10px;background:rgba(43,33,64,.78);color:var(--paper);border-radius:12px;padding:6px 12px;font-variant-numeric:tabular-nums;pointer-events:none}
+#hud b{font-family:var(--display);font-size:22px;font-weight:400}
+#hud small{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+#meter{position:absolute;right:10px;top:12px;bottom:12px;width:10px;border-radius:6px;background:rgba(43,33,64,.35);pointer-events:none}
+#meterFill{position:absolute;left:0;right:0;bottom:0;border-radius:6px;background:var(--flag);height:0}
+#meter::before{content:"";position:absolute;top:-4px;left:-3px;width:16px;height:16px;border-radius:50%;border:3px solid var(--flag);background:var(--paper)}
+#tip{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);background:var(--paper);border-radius:14px;padding:8px 14px;font-weight:800;font-size:14px;text-align:center;box-shadow:0 4px 0 rgba(43,33,64,.25);transition:opacity .4s}
+#toast{position:absolute;left:50%;top:64px;transform:translate(-50%,-10px);max-width:calc(100% - 32px);background:var(--ink);color:var(--paper);border-radius:999px;padding:8px 16px;font-weight:900;font-size:15px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+.pad{display:flex;gap:10px;padding-block:12px;padding-inline:16px;background:var(--ink);touch-action:none}
+.ctl{border:0;border-radius:16px;background:var(--ink-2);color:var(--paper);height:66px;flex:1;font-family:var(--display);font-size:26px;box-shadow:0 5px 0 #17112a;touch-action:none;-webkit-user-select:none;user-select:none}
+.ctl.jump{flex:1.7;background:var(--flag);box-shadow:0 5px 0 var(--flag-dk);font-size:24px;letter-spacing:.04em}
+.ctl.on{transform:translateY(4px);box-shadow:0 1px 0 #17112a}
+.ctl.jump.on{box-shadow:0 1px 0 var(--flag-dk)}
+
+.screen{position:absolute;inset:0;overflow-y:auto;padding-block:20px;padding-inline:16px;display:flex;flex-direction:column;gap:14px;background:linear-gradient(180deg,#8fd3ff 0%,#cdeeff 100%)}
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding-top:6px}
+.hero svg{width:116px;height:auto;animation:bob 2.4s ease-in-out infinite}
+.hero h1{margin:4px 0 0;font-family:var(--display);font-weight:400;font-size:52px;line-height:1;color:var(--ink);text-shadow:0 4px 0 var(--cardboard)}
+.hero p{margin:6px 0 0;font-weight:800;color:var(--slate)}
+@keyframes bob{50%{transform:translateY(-6px) rotate(-3deg)}}
+.card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:3px solid var(--ink);background:var(--paper);border-radius:20px;padding:12px;box-shadow:0 6px 0 var(--ink)}
+.card:active{transform:translateY(4px);box-shadow:0 2px 0 var(--ink)}
+.thumb{width:72px;height:72px;border-radius:14px;flex:none;display:grid;place-items:center;overflow:hidden}
+.thumb svg{width:100%;height:100%}
+.ctext{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ctext strong{font-family:var(--display);font-weight:400;font-size:22px;line-height:1.1}
+.ctext span{font-size:14px;font-weight:700;color:var(--muted);line-height:1.35}
+.go{flex:none;background:var(--flag);color:var(--paper);font-family:var(--display);font-size:18px;border-radius:12px;padding:8px 14px;box-shadow:0 3px 0 var(--flag-dk)}
+.go.alt{background:var(--coin);color:var(--ink);box-shadow:0 3px 0 #c98a0a}
+.soon{border:3px dashed rgba(43,33,64,.3);border-radius:20px;padding:14px;text-align:center;font-weight:800;color:var(--muted)}
+.stats{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.stat{background:rgba(255,255,255,.6);border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px;display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+
+.sheet{position:absolute;inset:0;background:rgba(43,33,64,.55);display:flex;align-items:center;justify-content:center;padding-inline:16px;padding-block:20px}
+.sheet-card{width:100%;max-width:420px;background:var(--paper);border:3px solid var(--ink);border-radius:24px;padding:18px;box-shadow:0 8px 0 var(--ink);display:flex;flex-direction:column;gap:14px}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sheet-head h2{margin:0;font-family:var(--display);font-weight:400;font-size:32px}
+.pill.dark{background:var(--ink);color:var(--paper)}
+.item{display:flex;align-items:center;gap:12px;border:3px solid var(--ink);border-radius:18px;padding:10px;background:#fff}
+.item .thumb{background:#e9f6ff;width:64px;height:64px}
+.buy{border:0;border-radius:12px;padding:10px 14px;font-family:var(--display);font-size:18px;background:var(--coin);color:var(--ink);box-shadow:0 3px 0 #c98a0a;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.buy:disabled{background:#ddd8e6;color:var(--muted);box-shadow:0 3px 0 #b9b2c8;cursor:not-allowed}
+.buy.owned{background:#5bbf5a;color:#fff;box-shadow:0 3px 0 #2f7d2f}
+.buy.off{background:#ddd8e6;color:var(--ink);box-shadow:0 3px 0 #b9b2c8}
+.wide{border:0;border-radius:14px;padding:12px;font-family:var(--display);font-size:20px;background:var(--ink);color:var(--paper);box-shadow:0 4px 0 #17112a}
+.sheet-card{max-height:100%;overflow-y:auto}
+[hidden]{display:none!important}
+.shop-note{margin:-4px 0 0;font-size:13px;font-weight:800;color:var(--muted);line-height:1.35}
+.shop-label{margin:4px 0 -4px;font-family:var(--display);font-weight:400;font-size:18px;letter-spacing:.04em;color:#e8742a}
+.card.spooky{background:#2b2140;color:var(--paper);border-color:#e8742a;box-shadow:0 6px 0 #e8742a}
+.card.spooky:active{box-shadow:0 2px 0 #e8742a}
+.card.spooky .ctext span{color:#c9bde6}
+.go.spooky{background:#e8742a;box-shadow:0 3px 0 #9a420c}
+.stickpad{justify-content:center;align-items:center;gap:18px}
+.stick{position:relative;width:128px;height:128px;border-radius:50%;background:var(--ink-2);box-shadow:inset 0 0 0 4px #17112a;touch-action:none;flex:none;cursor:grab}
+.stick .arr{position:absolute;color:rgba(255,250,240,.35);font-size:13px;pointer-events:none;line-height:1}
+.arr.l{left:9px;top:50%;transform:translateY(-50%)}
+.arr.r{right:9px;top:50%;transform:translateY(-50%)}
+.arr.u{top:8px;left:50%;transform:translateX(-50%)}
+.knob{position:absolute;left:50%;top:50%;width:58px;height:52px;margin:-26px 0 0 -29px;border-radius:50%;background:radial-gradient(ellipse at 50% 38%,#ffa24a,#e8742a 72%);box-shadow:0 5px 0 #9a420c;transition:transform .15s ease-out;pointer-events:none}
+.knob::before{content:"";position:absolute;left:50%;top:-7px;width:6px;height:11px;margin-left:-3px;border-radius:3px;background:#3f6b3a}
+.stick.drag .knob{transition:none}
+.stickhint{color:var(--paper);font-weight:800;font-size:13px;line-height:1.35;max-width:120px;opacity:.85}
+@media (prefers-reduced-motion:reduce){.hero svg{animation:none}}
+</style>
+
+<div id="app">
+  <header class="bar">
+    <div class="logo">BUTT <span>BOX</span></div>
+    <span class="pill" aria-label="Coins"><i class="coin"></i><b class="coinCount">0</b></span>
+    <button class="tbtn" id="shopBtn" aria-label="Open shop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>Shop
+    </button>
+    <button class="tbtn" id="homeBtn" aria-label="Back to games" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg>
+    </button>
+  </header>
+
+  <main id="stage">
+    <canvas id="c" aria-label="Climb the Mountain game"></canvas>
+    <div id="hud" hidden><small>Altitude</small><b id="alt">0</b> <span id="altOf">/ 667 m</span></div>
+    <div id="meter" hidden><div id="meterFill"></div></div>
+    <div id="tip" hidden>Walk with ◀ ▶ and hop with JUMP. Plant the flag in the circle at the top!</div>
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <section id="menu" class="screen">
+      <div class="hero">
+        <svg viewBox="0 0 120 110" aria-hidden="true">
+          <path d="M18 32 L6 12 L50 18 L58 32Z" fill="#c78a4f" stroke="#2b2140" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M102 32 L114 12 L70 18 L62 32Z" fill="#c78a4f" stroke="#2b2140" stroke-width="4" stroke-linejoin="round"/>
+          <rect x="16" y="30" width="88" height="72" rx="8" fill="#d9a066" stroke="#2b2140" stroke-width="4"/>
+          <rect x="54" y="32" width="12" height="22" fill="#f0c890"/>
+          <circle cx="44" cy="64" r="6" fill="#2b2140"/><circle cx="76" cy="64" r="6" fill="#2b2140"/>
+          <circle cx="46" cy="62" r="2" fill="#fff"/><circle cx="78" cy="62" r="2" fill="#fff"/>
+          <ellipse cx="33" cy="77" rx="6" ry="4" fill="#f28b82" opacity=".75"/><ellipse cx="87" cy="77" rx="6" ry="4" fill="#f28b82" opacity=".75"/>
+          <path d="M50 78 Q60 88 70 78" stroke="#2b2140" stroke-width="4" fill="none" stroke-linecap="round"/>
+        </svg>
+        <h1>Butt Box</h1>
+        <p>A box full of tiny games</p>
+      </div>
+
+      <div class="stats">
+        <span class="stat"><i class="coin"></i><b class="coinCount">0</b> coins</span>
+        <span class="stat">Summits: <b id="summitCount">0</b></span>
+      </div>
+
+      <button class="card" id="playBtn">
+        <div class="thumb" style="background:#8fd3ff">
+          <svg viewBox="0 0 72 72" aria-hidden="true">
+            <path d="M-4 72 L36 18 L76 72Z" fill="#5d5a92"/>
+            <path d="M26 31.5 L36 18 L46 31.5 Q41 35 36 31 Q31 35 26 31.5Z" fill="#f4f8ff"/>
+            <rect x="0" y="62" width="72" height="10" fill="#5bbf5a"/>
+            <line x1="36" y1="18" x2="36" y2="4" stroke="#6b4a2b" stroke-width="2.5"/>
+            <path d="M36 4 L50 8 L36 12Z" fill="#e63946"/>
+          </svg>
+        </div>
+        <div class="ctext"><strong>Climb the Mountain</strong><span>Carry the red flag up. Plant it in the circle at the top. Earn 1 coin.</span></div>
+        <span class="go">Play</span>
+      </button>
+
+      <button class="card spooky" id="playHalloween">
+        <div class="thumb" style="background:#2a1748">
+          <svg viewBox="0 0 72 72" aria-hidden="true">
+            <circle cx="54" cy="16" r="9" fill="#ffe8a8"/>
+            <path d="M-4 72 L34 22 L76 72Z" fill="#4a3670"/>
+            <rect x="0" y="62" width="72" height="10" fill="#4c7a3e"/>
+            <path d="M14 20 q4 -4 8 0 q4 -4 8 0 q-4 1 -8 4 q-4 -3 -8 -4z" fill="#120b1f"/>
+            <ellipse cx="18" cy="59" rx="10" ry="7.5" fill="#ff8a2a"/>
+            <rect x="17" y="49" width="2.5" height="4" fill="#3f6b3a"/>
+            <path d="M12 58 L14.5 54.5 L17 58Z M19 58 L21.5 54.5 L24 58Z M12 61 L15 63 L18 61.5 L21 63 L24 61Z" fill="#ffe14d"/>
+            <line x1="34" y1="22" x2="34" y2="8" stroke="#6b4a2b" stroke-width="2.5"/>
+            <path d="M34 8 L48 12 L34 16Z" fill="#e63946"/>
+          </svg>
+        </div>
+        <div class="ctext"><strong>Halloween Mountain</strong><span>A spooky night climb with bats, ghosts and pumpkins. Steer with the drag ball.</span></div>
+        <span class="go spooky">Play</span>
+      </button>
+
+      <button class="card" id="shopCard">
+        <div class="thumb" style="background:#fff1cc">
+          <svg viewBox="0 0 72 72" aria-hidden="true">
+            <rect x="20" y="10" width="32" height="10" rx="3" fill="#e63946"/>
+            <polyline points="24,22 48,28 24,34 48,40 24,46 48,52" fill="none" stroke="#8b94a3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="18" y="54" width="36" height="8" rx="3" fill="#2b2140"/>
+          </svg>
+        </div>
+        <div class="ctext"><strong>Shop</strong><span>Spring, Jetpack, and new Halloween gear: a cat costume and a witch's hat.</span></div>
+        <span class="go alt">Open</span>
+      </button>
+
+      <div class="soon">More games coming soon</div>
+    </section>
+
+    <section id="shop" class="sheet" hidden>
+      <div class="sheet-card" role="dialog" aria-labelledby="shopTitle">
+        <div class="sheet-head">
+          <h2 id="shopTitle">Shop</h2>
+          <span class="pill dark"><i class="coin"></i><b class="coinCount">0</b></span>
+        </div>
+        <p class="shop-note">Items only last for this game. Next time you play they're gone, but your coins stay!</p>
+        <div class="item">
+          <div class="thumb">
+            <svg viewBox="0 0 72 72" aria-hidden="true">
+              <rect x="20" y="10" width="32" height="10" rx="3" fill="#e63946"/>
+              <polyline points="24,22 48,28 24,34 48,40 24,46 48,52" fill="none" stroke="#8b94a3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="18" y="54" width="36" height="8" rx="3" fill="#2b2140"/>
+            </svg>
+          </div>
+          <div class="ctext"><strong>Spring</strong><span>Bouncy feet. Jump about twice as high.</span></div>
+          <button class="buy" id="buy-spring"></button>
+        </div>
+        <div class="item">
+          <div class="thumb">
+            <svg viewBox="0 0 72 72" aria-hidden="true">
+              <rect x="16" y="12" width="16" height="36" rx="7" fill="#e63946" stroke="#2b2140" stroke-width="3"/>
+              <rect x="40" y="12" width="16" height="36" rx="7" fill="#e63946" stroke="#2b2140" stroke-width="3"/>
+              <rect x="28" y="20" width="16" height="10" rx="3" fill="#8b94a3" stroke="#2b2140" stroke-width="3"/>
+              <path d="M18 50 L24 66 L30 50Z" fill="#ffc23c"/><path d="M42 50 L48 66 L54 50Z" fill="#ffc23c"/>
+              <path d="M21 50 L24 59 L27 50Z" fill="#ff7a1a"/><path d="M45 50 L48 59 L51 50Z" fill="#ff7a1a"/>
+            </svg>
+          </div>
+          <div class="ctext"><strong>Jetpack</strong><span>Hold JUMP in the air to fly up. Refills when you land.</span></div>
+          <button class="buy" id="buy-jetpack"></button>
+        </div>
+        <div class="shop-label">Halloween</div>
+        <div class="item">
+          <div class="thumb" style="background:#2a1748">
+            <svg viewBox="0 0 72 72" aria-hidden="true">
+              <path d="M16 30 L20 10 L32 26Z" fill="#d9a066" stroke="#2b2140" stroke-width="3" stroke-linejoin="round"/>
+              <path d="M56 30 L52 10 L40 26Z" fill="#d9a066" stroke="#2b2140" stroke-width="3" stroke-linejoin="round"/>
+              <path d="M20 26 L21 16 L27 24Z M52 26 L51 16 L45 24Z" fill="#f28b82"/>
+              <rect x="12" y="24" width="48" height="38" rx="6" fill="#d9a066" stroke="#2b2140" stroke-width="3"/>
+              <circle cx="27" cy="40" r="4" fill="#2b2140"/><circle cx="45" cy="40" r="4" fill="#2b2140"/>
+              <path d="M33 46 L39 46 L36 50Z" fill="#f28b82"/>
+              <path d="M28 48 L10 46 M28 51 L10 53 M44 48 L62 46 M44 51 L62 53" stroke="#2b2140" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="ctext"><strong>Cat costume</strong><span>Turn into a box with cat ears, whiskers and a tail.</span></div>
+          <button class="buy" id="buy-cat"></button>
+        </div>
+        <div class="item">
+          <div class="thumb" style="background:#2a1748">
+            <svg viewBox="0 0 72 72" aria-hidden="true">
+              <ellipse cx="36" cy="54" rx="28" ry="7" fill="#4b2d73" stroke="#120b1f" stroke-width="3"/>
+              <path d="M20 53 Q28 30 46 8 Q42 30 52 53Z" fill="#4b2d73" stroke="#120b1f" stroke-width="3" stroke-linejoin="round"/>
+              <path d="M22 44 L50 44 L52 51 L20 51Z" fill="#ff8a2a"/>
+              <rect x="32" y="43" width="8" height="9" rx="1.5" fill="none" stroke="#ffe14d" stroke-width="2.5"/>
+              <path d="M58 18 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2z" fill="#ffe14d"/>
+            </svg>
+          </div>
+          <div class="ctext"><strong>Witch's hat</strong><span>Magic! You float down slowly and jump extra high.</span></div>
+          <button class="buy" id="buy-hat"></button>
+        </div>
+        <button class="wide" id="closeShop">Back</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="pad" id="pad" hidden>
+    <button class="ctl" data-k="left" aria-label="Move left">◀</button>
+    <button class="ctl" data-k="right" aria-label="Move right">▶</button>
+    <button class="ctl jump" data-k="jump">JUMP</button>
+  </nav>
+  <nav class="pad stickpad" id="stickPad" hidden>
+    <div class="stick" id="stick" role="application" aria-label="Drag the pumpkin ball to move. Push it up to jump.">
+      <span class="arr l">◀</span><span class="arr r">▶</span><span class="arr u">▲</span>
+      <div class="knob" id="knob"></div>
+    </div>
+    <div class="stickhint">Drag the pumpkin where you want to go. Push it up to jump!</div>
+  </nav>
+</div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+/* ---------- save ---------- */
+const SAVE_KEY = 'buttbox-save-v1';
+let save = { coins: 0, spring: false, springOn: true, jetpack: false, jetpackOn: true, cat: false, catOn: true, hat: false, hatOn: true, summits: 0 };
+const ITEMS = {
+  spring: { cost: 2, name: 'Spring', bought: 'Spring bought! Boing!' },
+  jetpack: { cost: 10, name: 'Jetpack', bought: 'Jetpack bought! Hold JUMP in the air to fly!' },
+  cat: { cost: 2, name: 'Cat costume', bought: 'Meow! You are a cat box now!' },
+  hat: { cost: 5, name: "Witch's hat", bought: "Witch's hat bought! Now you float!" }
+};
+const JET_FUEL = 1.6, JET_THRUST = 3000, JET_MAX = 330, HAT_G = .6, HAT_FALL = 150;
+const catOn = () => save.cat && save.catOn;
+const hatOn = () => save.hat && save.hatOn;
+const jetOn = () => save.jetpack && save.jetpackOn;
+function loadSave(){ try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s) Object.assign(save, s); } catch(e){} }
+function persist(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch(e){} }
+const springOn = () => save.spring && save.springOn;
+
+/* ---------- world ---------- */
+const W = 360, WORLD_H = 1700, GROUND_Y = WORLD_H - 48, STEP = 78, LEDGES = 18;
+const SUMMIT_Y = GROUND_Y - STEP * (LEDGES + 1);
+const SNOW_Y = SUMMIT_Y + 300;
+const G = 1900, SPEED = 190, JUMP = 610, JUMP_SPRING = 860, MAXFALL = 1000;
+const M_PER_PX = 0.45, SUMMIT_M = Math.round((GROUND_Y - SUMMIT_Y) * M_PER_PX);
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let plats, summit, mtn, clouds, decor, stars, rnd, theme = 'classic', tNow = 0;
+function buildWorld(th){
+theme = th;
+rnd = mulberry32(th === 'halloween' ? 31102026 : 20261011);
+plats = [{ x: -20, y: GROUND_Y, w: W + 40, h: 48, kind: 'ground' }];
+let cx = W * 0.68, dir = -1;
+for (let k = 1; k <= LEDGES; k++){
+  const py = GROUND_Y - k * STEP;
+  const w = Math.round(76 + rnd() * 28);
+  const hw = Math.max(84, (py - SUMMIT_Y) / (GROUND_Y - SUMMIT_Y) * (W / 2 + 380));
+  const lo = Math.max(w / 2 + 6, W / 2 - hw + w * 0.3), hi = Math.min(W - w / 2 - 6, W / 2 + hw - w * 0.3);
+  let nc = cx + (50 + rnd() * 55) * dir;
+  if (nc < lo || nc > hi){ dir = -dir; nc = cx + (50 + rnd() * 55) * dir; }
+  cx = Math.max(lo, Math.min(hi, nc));
+  if (rnd() < 0.7) dir = -dir;
+  plats.push({ x: cx - w / 2, y: py, w, h: 14, kind: th === 'halloween' ? 'spooky' : py < SNOW_Y ? 'snow' : 'grass' });
+}
+summit = { x: W / 2 - 70, y: SUMMIT_Y, w: 140, h: 22, kind: 'summit' };
+plats.push(summit);
+
+mtn = [[-440, WORLD_H]];
+for (let i = 1; i < 12; i++){ const f = i / 12; mtn.push([-440 + (W / 2 - 70 + 440) * f + (rnd() - .5) * 18, WORLD_H - (WORLD_H - SUMMIT_Y) * f + (rnd() - .5) * 20]); }
+mtn.push([W / 2 - 66, SUMMIT_Y + 8], [W / 2 + 66, SUMMIT_Y + 8]);
+for (let i = 11; i > 0; i--){ const f = i / 12; mtn.push([W + 440 - (W + 440 - (W / 2 + 70)) * f + (rnd() - .5) * 18, WORLD_H - (WORLD_H - SUMMIT_Y) * f + (rnd() - .5) * 20]); }
+mtn.push([W + 440, WORLD_H]);
+
+clouds = Array.from({ length: 7 }, () => ({ x: rnd() * W, y: 120 + rnd() * (GROUND_Y - 360), s: .7 + rnd() * .7, v: 6 + rnd() * 10 }));
+stars = Array.from({ length: 40 }, () => ({ x: rnd() * W, y: rnd() * .7, r: .6 + rnd() * 1.1, tw: 1 + rnd() * 2 }));
+decor = { pumpkins: [], ghosts: [], bats: [] };
+if (th === 'halloween'){
+  for (const pl of plats) if (pl.kind === 'spooky' && rnd() < .45) decor.pumpkins.push({ x: pl.x + 10 + rnd() * (pl.w - 20), y: pl.y, s: .75 + rnd() * .4 });
+  for (let i = 0; i < 5; i++) decor.ghosts.push({ x: rnd() * W, y: SUMMIT_Y + 120 + rnd() * (GROUND_Y - SUMMIT_Y - 280), ph: rnd() * 6, sp: 12 + rnd() * 14, dir: rnd() < .5 ? -1 : 1 });
+  for (let i = 0; i < 8; i++) decor.bats.push({ x: rnd() * W, y: SUMMIT_Y - 140 + rnd() * (GROUND_Y - SUMMIT_Y), v: 30 + rnd() * 40, ph: rnd() * 6, s: .7 + rnd() * .5 });
+}
+}
+buildWorld('classic');
+
+/* ---------- state ---------- */
+const player = { x: 30, y: GROUND_Y - 28, w: 24, h: 28, vx: 0, vy: 0, onGround: true, on: plats[0], facing: 1, hasFlag: true, land: 0, boing: 0, fuel: 1.6, thrust: false };
+let state = 'menu', prevState = 'menu', planting = null, camY = WORLD_H, moved = false;
+const keys = { left: false, right: false, jump: false };
+const parts = [], pops = [];
+
+/* ---------- canvas ---------- */
+const canvas = $('#c'), ctx = canvas.getContext('2d');
+let viewH = 600, scale = 1, dpr = 1;
+function resize(){
+  const r = $('#stage').getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  scale = r.width / W; viewH = r.height / scale;
+  canvas.width = Math.max(1, Math.round(r.width * dpr));
+  canvas.height = Math.max(1, Math.round(r.height * dpr));
+}
+const maxCam = () => Math.max(0, WORLD_H - viewH);
+new ResizeObserver(resize).observe($('#stage'));
+
+/* ---------- UI ---------- */
+let toastTimer;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800); }
+function renderCoins(){
+  $$('.coinCount').forEach(e => e.textContent = save.coins);
+  $('#summitCount').textContent = save.summits;
+  for (const id in ITEMS){
+    const it = ITEMS[id], b = $('#buy-' + id);
+    b.className = 'buy'; b.disabled = false;
+    if (!save[id]){
+      if (save.coins < it.cost){ b.disabled = true; b.textContent = 'Need ' + it.cost; }
+      else b.innerHTML = '<i class="coin"></i>' + it.cost;
+    } else {
+      const on = save[id + 'On'];
+      b.textContent = on ? 'On' : 'Off';
+      b.classList.add(on ? 'owned' : 'off');
+    }
+  }
+}
+function setState(s){
+  state = s;
+  $('#menu').hidden = s !== 'menu';
+  const playing = s === 'play' || (s === 'shop' && prevState === 'play');
+  $('#pad').hidden = !playing || theme === 'halloween';
+  $('#stickPad').hidden = !playing || theme !== 'halloween';
+  resetStick();
+  $('#hud').hidden = !playing; $('#meter').hidden = !playing;
+  $('#homeBtn').hidden = !playing;
+  $('#tip').hidden = !playing || moved;
+  for (const k in keys) keys[k] = false;
+  $$('.ctl').forEach(b => b.classList.remove('on'));
+}
+function openShop(){ if (state === 'shop') return; prevState = state; renderCoins(); $('#shop').hidden = false; setState('shop'); }
+function closeShop(){ $('#shop').hidden = true; setState(prevState); }
+
+function startMountain(th){
+  buildWorld(th); resetPlayer(); camY = maxCam(); moved = false;
+  const tip = $('#tip'); tip.style.opacity = 1;
+  tip.textContent = th === 'halloween' ? 'Drag the pumpkin ball to move. Push it up to jump!' : 'Walk with ◀ ▶ and hop with JUMP. Plant the flag in the circle at the top!';
+  prevState = 'play'; setState('play');
+}
+$('#playBtn').onclick = () => startMountain('classic');
+$('#playHalloween').onclick = () => startMountain('halloween');
+$('#shopCard').onclick = openShop;
+$('#shopBtn').onclick = openShop;
+$('#closeShop').onclick = closeShop;
+$('#shop').addEventListener('click', e => { if (e.target.id === 'shop') closeShop(); });
+$('#homeBtn').onclick = () => { prevState = 'menu'; renderCoins(); setState('menu'); };
+for (const id in ITEMS){
+  $('#buy-' + id).onclick = () => {
+    const it = ITEMS[id];
+    if (!save[id]){
+      if (save.coins < it.cost) return;
+      save.coins -= it.cost; save[id] = true; save[id + 'On'] = true; toast(it.bought);
+    } else { save[id + 'On'] = !save[id + 'On']; toast(it.name + (save[id + 'On'] ? ' on' : ' off')); }
+    persist(); renderCoins();
+  };
+}
+
+$$('.ctl').forEach(b => {
+  const k = b.dataset.k;
+  const on = e => { e.preventDefault(); keys[k] = true; b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch(_){} };
+  const off = () => { keys[k] = false; b.classList.remove('on'); };
+  b.addEventListener('pointerdown', on);
+  b.addEventListener('pointerup', off);
+  b.addEventListener('pointercancel', off);
+  b.addEventListener('lostpointercapture', off);
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+/* drag ball (Halloween) */
+let stickX = 0, stickActive = false;
+const stick = $('#stick'), knob = $('#knob');
+function setStick(e){
+  const r = stick.getBoundingClientRect(), R = r.width / 2 - 14;
+  let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const d = Math.hypot(dx, dy); if (d > R){ dx *= R / d; dy *= R / d; }
+  knob.style.transform = `translate(${dx}px,${dy}px)`;
+  stickX = Math.abs(dx) < 8 ? 0 : dx / R;
+  keys.jump = dy < -R * 0.45;
+}
+function resetStick(){ stickActive = false; stickX = 0; keys.jump = false; stick.classList.remove('drag'); knob.style.transform = ''; }
+stick.addEventListener('pointerdown', e => { e.preventDefault(); stickActive = true; stick.classList.add('drag'); try { stick.setPointerCapture(e.pointerId); } catch(_){} setStick(e); });
+stick.addEventListener('pointermove', e => { if (stickActive) setStick(e); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => stick.addEventListener(ev, () => { if (stickActive) resetStick(); }));
+stick.addEventListener('contextmenu', e => e.preventDefault());
+
+const keyMap = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'jump', w: 'jump', W: 'jump', ' ': 'jump' };
+addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state === 'shop'){ closeShop(); return; }
+  const k = keyMap[e.key]; if (!k || state !== 'play') return;
+  e.preventDefault(); keys[k] = true;
+});
+addEventListener('keyup', e => { const k = keyMap[e.key]; if (k) keys[k] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+/* ---------- game logic ---------- */
+function burst(x, y){
+  const cols = ['#e63946', '#ffc23c', '#5bbf5a', '#4aa3ff', '#ffffff', '#b98cff'];
+  for (let i = 0; i < 60; i++){
+    const a = -Math.PI / 2 + (Math.random() - .5) * 2.2, v = 180 + Math.random() * 260;
+    parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, c: cols[i % cols.length], r: Math.random() * 6, spin: (Math.random() - .5) * 14, life: 1.6 + Math.random() * .8 });
+  }
+}
+function plant(){
+  player.hasFlag = false; planting = { t: 0 };
+  save.coins++; save.summits++; persist(); renderCoins();
+  burst(W / 2, SUMMIT_Y - 30);
+  pops.push({ text: '+1 coin!', x: W / 2, y: SUMMIT_Y - 70, life: 1.7 });
+  for (const id in ITEMS){
+    const it = ITEMS[id];
+    if (!save[id] && save.coins === it.cost){ setTimeout(() => toast(it.cost + ' coins! Get the ' + it.name + ' in the Shop!'), 900); break; }
+  }
+}
+function resetPlayer(){
+  planting = null;
+  Object.assign(player, { x: 30, y: GROUND_Y - player.h, vx: 0, vy: 0, onGround: true, on: plats[0], facing: 1, hasFlag: true, fuel: JET_FUEL, thrust: false });
+}
+function respawn(){
+  resetPlayer();
+  toast('Climb #' + (save.summits + 1) + '. Go!');
+}
+
+function update(dt, t){
+  for (const c of clouds){ c.x += c.v * dt; if (c.x > W + 80) c.x = -80; }
+  for (const b of decor.bats){ b.x += b.v * dt; b.ph += dt * 14; if (b.x > W + 30) b.x = -30; }
+  for (const g of decor.ghosts){ g.x += g.sp * g.dir * dt; if (g.x > W + 30) g.x = -30; if (g.x < -30) g.x = W + 30; }
+  for (let i = parts.length - 1; i >= 0; i--){ const p = parts[i]; p.vy += 600 * dt; p.vx *= .99; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.spin * dt; p.life -= dt; if (p.life <= 0) parts.splice(i, 1); }
+  for (let i = pops.length - 1; i >= 0; i--){ const p = pops[i]; p.y -= 30 * dt; p.life -= dt; if (p.life <= 0) pops.splice(i, 1); }
+
+  const p = player;
+  if (state === 'play'){
+    if (planting){ planting.t += dt; if (planting.t > 1.9) respawn(); }
+    let d = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    if (stickActive && stickX) d = Math.max(-1, Math.min(1, stickX * 1.25));
+    if (planting) d = 0;
+    if (d && !moved){ moved = true; const tip = $('#tip'); tip.style.opacity = 0; setTimeout(() => tip.hidden = true, 400); }
+    p.vx = d * SPEED; if (d) p.facing = d > 0 ? 1 : -1;
+    if (!planting && keys.jump && p.onGround){ p.vy = -(springOn() ? JUMP_SPRING : JUMP); p.onGround = false; if (springOn()) p.boing = .2; }
+    const hat = hatOn();
+    p.vy = Math.min(hat ? HAT_FALL : MAXFALL, p.vy + G * (hat ? HAT_G : 1) * dt);
+    if (hat && !p.onGround && p.vy > 0 && Math.random() < dt * 25) parts.push({ x: p.x + Math.random() * p.w, y: p.y - 4, vx: (Math.random() - .5) * 30, vy: -30, c: Math.random() < .5 ? '#c9a3ff' : '#ffe14d', r: 0, spin: 6, life: .5 });
+    p.thrust = false;
+    if (jetOn() && !planting && keys.jump && !p.onGround && p.fuel > 0){
+      if (p.vy > -JET_MAX) p.vy = Math.max(-JET_MAX, p.vy - JET_THRUST * dt);
+      p.fuel -= dt; p.thrust = true;
+      const nx = p.facing > 0 ? p.x - 4 : p.x + p.w + 4;
+      parts.push({ x: nx + (Math.random() - .5) * 4, y: p.y + p.h - 4, vx: (Math.random() - .5) * 40, vy: 160 + Math.random() * 80, c: Math.random() < .5 ? '#ffc23c' : '#ff7a1a', r: Math.random() * 6, spin: 4, life: .25 + Math.random() * .2 });
+    }
+    p.x = Math.max(0, Math.min(W - p.w, p.x + p.vx * dt));
+    const prevB = p.y + p.h, wasGround = p.onGround;
+    p.y += p.vy * dt; p.onGround = false;
+    if (p.vy >= 0){
+      for (const pl of plats){
+        if (p.x + p.w > pl.x + 3 && p.x < pl.x + pl.w - 3 && prevB <= pl.y + 1 && p.y + p.h >= pl.y){
+          if (!wasGround && p.vy > 350) p.land = .14;
+          p.y = pl.y - p.h; p.vy = 0; p.onGround = true; p.on = pl; break;
+        }
+      }
+    }
+    if (!planting && p.hasFlag && p.onGround && p.on === summit && Math.abs(p.x + p.w / 2 - W / 2) < 24) plant();
+    if (p.onGround) p.fuel = JET_FUEL;
+    p.land = Math.max(0, p.land - dt); p.boing = Math.max(0, p.boing - dt);
+
+    const alt = Math.max(0, Math.round((GROUND_Y - (p.y + p.h)) * M_PER_PX));
+    const altEl = $('#alt'); if (altEl.textContent != alt) altEl.textContent = alt;
+    $('#meterFill').style.height = Math.min(100, alt / SUMMIT_M * 100) + '%';
+  }
+  const target = Math.max(0, Math.min(maxCam(), p.y + p.h / 2 - viewH * 0.58));
+  camY += (target - camY) * Math.min(1, dt * (state === 'play' && !planting ? 7 : 2.5));
+}
+
+/* ---------- drawing ---------- */
+const lerp = (a, b, f) => a + (b - a) * f;
+const mix = (a, b, f) => `rgb(${a.map((v, i) => Math.round(lerp(v, b[i], f))).join(',')})`;
+function rr(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function circle(x, y, r){ ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+
+function hills(off, color, base, freq, amp){
+  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, viewH + 2);
+  for (let x = 0; x <= W; x += 10) ctx.lineTo(x, viewH - base + off - (Math.sin(x * freq) * amp + Math.sin(x * freq * 2.3 + 1) * amp * .5));
+  ctx.lineTo(W, viewH + 2); ctx.closePath(); ctx.fill();
+}
+function drawCloud(c){
+  ctx.fillStyle = theme === 'halloween' ? 'rgba(190,170,225,.22)' : 'rgba(255,255,255,.85)';
+  const s = c.s; circle(c.x, c.y, 16 * s); circle(c.x + 18 * s, c.y - 8 * s, 20 * s); circle(c.x + 38 * s, c.y, 15 * s);
+  rr(c.x - 2 * s, c.y - 2 * s, 42 * s, 16 * s, 8 * s); ctx.fill();
+}
+function drawMountain(){
+  ctx.beginPath(); ctx.moveTo(mtn[0][0], mtn[0][1]);
+  for (const [x, y] of mtn) ctx.lineTo(x, y);
+  ctx.closePath();
+  const mg = ctx.createLinearGradient(0, SUMMIT_Y, 0, WORLD_H);
+  const hwm = theme === 'halloween';
+  mg.addColorStop(0, hwm ? '#4a3670' : '#76709f'); mg.addColorStop(1, hwm ? '#221833' : '#4a4a7a');
+  ctx.fillStyle = mg; ctx.fill();
+  ctx.save(); ctx.clip();
+  ctx.fillStyle = 'rgba(20,15,50,.2)';
+  ctx.beginPath(); ctx.moveTo(W / 2 + 40, SUMMIT_Y); ctx.lineTo(W / 2 + 70, WORLD_H); ctx.lineTo(W + 500, WORLD_H); ctx.lineTo(W + 500, SUMMIT_Y); ctx.fill();
+  if (theme === 'halloween'){ ctx.restore(); return; }
+  ctx.fillStyle = '#f4f8ff';
+  ctx.beginPath(); ctx.moveTo(-500, 0); ctx.lineTo(W + 500, 0); ctx.lineTo(W + 500, SNOW_Y);
+  for (let x = W + 500; x >= -500; x -= 20) ctx.lineTo(x, SNOW_Y + Math.sin(x * .07) * 18 + (Math.abs(x) % 40 < 20 ? 10 : 0));
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(160,180,220,.35)';
+  ctx.beginPath(); ctx.moveTo(W / 2 + 40, SUMMIT_Y); ctx.lineTo(W / 2 + 70, SNOW_Y + 30); ctx.lineTo(W + 500, SNOW_Y + 30); ctx.lineTo(W + 500, SUMMIT_Y); ctx.fill();
+  ctx.restore();
+}
+function pine(x, h){
+  ctx.fillStyle = '#5a3b22'; ctx.fillRect(x - 3, GROUND_Y - 12, 6, 12);
+  ctx.fillStyle = '#2f8a4a';
+  for (let i = 0; i < 3; i++){ const y = GROUND_Y - 10 - i * h * .28; const w = h * (.42 - i * .1); ctx.beginPath(); ctx.moveTo(x - w, y); ctx.lineTo(x, y - h * .45); ctx.lineTo(x + w, y); ctx.fill(); }
+}
+function tri(a, b, c, d, e, f){ ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.lineTo(e, f); ctx.closePath(); ctx.fill(); }
+function deadTree(x, h){
+  ctx.strokeStyle = '#2a1d30'; ctx.lineCap = 'round';
+  ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.lineTo(x + 2, GROUND_Y - h); ctx.stroke();
+  ctx.lineWidth = 3; ctx.beginPath();
+  ctx.moveTo(x + 1, GROUND_Y - h * .45); ctx.lineTo(x - h * .3, GROUND_Y - h * .75); ctx.lineTo(x - h * .38, GROUND_Y - h * .9);
+  ctx.moveTo(x + 2, GROUND_Y - h * .6); ctx.lineTo(x + h * .32, GROUND_Y - h * .85);
+  ctx.moveTo(x + h * .2, GROUND_Y - h * .75); ctx.lineTo(x + h * .3, GROUND_Y - h * .62);
+  ctx.moveTo(x + 2, GROUND_Y - h); ctx.lineTo(x - 6, GROUND_Y - h - 10);
+  ctx.stroke();
+}
+function grave(x, s){
+  const w = 20 * s, h = 26 * s, y = GROUND_Y - h;
+  ctx.fillStyle = '#8c8aa0'; ctx.beginPath(); ctx.moveTo(x - w / 2, GROUND_Y); ctx.lineTo(x - w / 2, y + w / 2); ctx.arc(x, y + w / 2, w / 2, Math.PI, 0); ctx.lineTo(x + w / 2, GROUND_Y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#5d5b70'; ctx.font = Math.round(8 * s) + 'px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('RIP', x, y + h * .55);
+}
+function pumpkin(x, y, s, t){
+  const r = 10 * s, glow = .75 + Math.sin(t * 7 + x) * .15;
+  ctx.save(); ctx.translate(x, y - r * .85);
+  ctx.fillStyle = `rgba(255,170,60,${.18 * glow})`; circle(0, 0, r * 2);
+  ctx.fillStyle = '#ff8a2a'; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.15, r * .85, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#c4570f'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(0, 0, r * .45, r * .85, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#3f6b3a'; ctx.fillRect(-1.5 * s, -r * 1.15, 3 * s, r * .4);
+  ctx.fillStyle = `rgba(255,225,77,${glow})`;
+  tri(-r * .6, -r * .05, -r * .38, -r * .42, -r * .16, -r * .05); tri(r * .16, -r * .05, r * .38, -r * .42, r * .6, -r * .05);
+  ctx.beginPath(); ctx.moveTo(-r * .62, r * .2); ctx.lineTo(-r * .3, r * .48); ctx.lineTo(0, r * .3); ctx.lineTo(r * .3, r * .48); ctx.lineTo(r * .62, r * .2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function ghost(g, t){
+  const x = g.x, y = g.y + Math.sin(t * 2 + g.ph) * 8;
+  ctx.save(); ctx.globalAlpha = .8; ctx.fillStyle = '#f4f0ff';
+  ctx.beginPath(); ctx.moveTo(x - 12, y + 14); ctx.lineTo(x - 12, y); ctx.arc(x, y, 12, Math.PI, 0); ctx.lineTo(x + 12, y + 14);
+  for (let i = 0; i < 4; i++){ const wx = x + 12 - (i + 1) * 6; ctx.quadraticCurveTo(wx + 3, y + 14 + (i % 2 ? -5 : 5) + Math.sin(t * 6 + i) * 1.5, wx, y + 14); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#2b2140';
+  ctx.beginPath(); ctx.ellipse(x - 4 + g.dir, y - 1, 2, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x + 4 + g.dir, y - 1, 2, 3, 0, 0, Math.PI * 2); ctx.fill();
+  circle(x + g.dir, y + 6, 2);
+  ctx.restore();
+}
+function bat(b){
+  const s = b.s, f = Math.sin(b.ph) * 6 * s, x = b.x, y = b.y + Math.sin(b.ph * .15) * 10;
+  ctx.fillStyle = '#120b1f';
+  ctx.beginPath(); ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(x - 8 * s, y - 6 * s - f, x - 16 * s, y - f); ctx.quadraticCurveTo(x - 10 * s, y + s, x - 8 * s, y + 4 * s); ctx.quadraticCurveTo(x - 4 * s, y + s, x, y + 4 * s);
+  ctx.quadraticCurveTo(x + 4 * s, y + s, x + 8 * s, y + 4 * s); ctx.quadraticCurveTo(x + 10 * s, y + s, x + 16 * s, y - f); ctx.quadraticCurveTo(x + 8 * s, y - 6 * s - f, x, y);
+  ctx.fill(); circle(x, y + s, 3.5 * s);
+  ctx.fillStyle = '#ffe14d'; circle(x - 1.3 * s, y + .5 * s, .8 * s); circle(x + 1.3 * s, y + .5 * s, .8 * s);
+}
+function drawGround(){
+  const hw = theme === 'halloween';
+  if (hw){ deadTree(305, 80); deadTree(-4, 64); grave(178, 1); grave(214, .8); grave(262, .9); }
+  else { pine(300, 70); pine(338, 54); pine(-6, 60); }
+  // trailhead sign
+  ctx.fillStyle = '#6b4a2b'; ctx.fillRect(98, GROUND_Y - 36, 5, 36);
+  ctx.fillStyle = '#c78a4f'; rr(76, GROUND_Y - 52, 50, 22, 4); ctx.fill();
+  ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#2b2140'; ctx.font = '11px "Lilita One", sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('TRAIL 0 m', 101, GROUND_Y - 37);
+  ctx.fillStyle = hw ? '#3a2a22' : '#7a5434'; ctx.fillRect(-20, GROUND_Y, W + 40, WORLD_H - GROUND_Y);
+  ctx.fillStyle = hw ? '#4c7a3e' : '#5bbf5a'; ctx.fillRect(-20, GROUND_Y, W + 40, 10);
+  ctx.fillStyle = hw ? '#355a2c' : '#3f9a40'; ctx.fillRect(-20, GROUND_Y + 10, W + 40, 3);
+  if (hw){ pumpkin(146, GROUND_Y, 1.2, tNow); pumpkin(236, GROUND_Y, .9, tNow); }
+}
+function drawLedge(pl){
+  const sp = pl.kind === 'spooky';
+  ctx.fillStyle = sp ? '#5d5470' : '#8a7f70'; rr(pl.x, pl.y, pl.w, pl.h + 4, 6); ctx.fill();
+  ctx.fillStyle = sp ? '#3b3350' : '#5f5649'; rr(pl.x + 4, pl.y + pl.h - 2, pl.w - 8, 6, 3); ctx.fill();
+  ctx.fillStyle = sp ? '#6fbf4a' : pl.kind === 'snow' ? '#ffffff' : '#62c462';
+  rr(pl.x - 2, pl.y - 3, pl.w + 4, 8, 4); ctx.fill();
+  if (sp){ rr(pl.x + pl.w * .3, pl.y + 2, 4, 9, 2); ctx.fill(); rr(pl.x + pl.w * .72, pl.y + 2, 3, 6, 1.5); ctx.fill(); }
+}
+function drawFlag(x, baseY, poleH, dirx, t){
+  ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x, baseY); ctx.lineTo(x, baseY - poleH); ctx.stroke();
+  const w = Math.sin(t * 9) * 2.5, top = baseY - poleH;
+  ctx.fillStyle = '#e63946';
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.quadraticCurveTo(x + dirx * 10, top - 2 + w, x + dirx * 20, top + 2 + w);
+  ctx.lineTo(x + dirx * 20, top + 12 + w); ctx.quadraticCurveTo(x + dirx * 10, top + 10 - w, x, top + 12); ctx.closePath(); ctx.fill();
+}
+function drawSummit(t){
+  const hw = theme === 'halloween';
+  ctx.fillStyle = hw ? '#5d5470' : '#8a7f70'; rr(summit.x, summit.y, summit.w, summit.h, 8); ctx.fill();
+  ctx.fillStyle = hw ? '#6fbf4a' : '#ffffff'; rr(summit.x - 3, summit.y - 4, summit.w + 6, 10, 5); ctx.fill();
+  const pulse = player.hasFlag && state === 'play' ? 1 + Math.sin(t * 5) * .08 : 1;
+  ctx.save(); ctx.translate(W / 2, SUMMIT_Y); ctx.scale(pulse, pulse);
+  ctx.fillStyle = hw ? 'rgba(255,138,42,.3)' : 'rgba(230,57,70,.18)'; ctx.beginPath(); ctx.ellipse(0, 0, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = hw ? '#ff8a2a' : '#e63946'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
+  if (planting){
+    const grow = Math.min(1, planting.t / .25);
+    drawFlag(W / 2, SUMMIT_Y, 46 * grow, 1, t);
+  } else if (player.hasFlag && state === 'play'){
+    const by = SUMMIT_Y - 26 + Math.sin(t * 4) * 4;
+    ctx.fillStyle = hw ? '#ffe14d' : '#2b2140'; ctx.font = '13px "Lilita One", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('PLANT FLAG HERE', W / 2, by - 6);
+    ctx.beginPath(); ctx.moveTo(W / 2 - 6, by); ctx.lineTo(W / 2 + 6, by); ctx.lineTo(W / 2, by + 7); ctx.fill();
+  }
+  ctx.fillStyle = hw ? 'rgba(255,250,240,.8)' : 'rgba(43,33,64,.75)'; ctx.font = '11px "Lilita One", sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('SUMMIT ' + SUMMIT_M + ' m', W / 2, SUMMIT_Y + 17);
+}
+function drawPlayer(t){
+  const p = player, sp = springOn() ? 8 : 0;
+  const squash = p.land > 0 ? 3 : 0;
+  const bx = p.x, bw = p.w, bh = p.h - sp - squash, by = p.y + squash;
+  if (sp){
+    const top = by + bh, bot = p.y + p.h, n = 4;
+    ctx.strokeStyle = '#8b94a3'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(bx + 6, top);
+    for (let i = 1; i <= n; i++) ctx.lineTo(i % 2 ? bx + bw - 6 : bx + 6, lerp(top, bot, i / n));
+    ctx.stroke();
+    ctx.fillStyle = '#2b2140'; ctx.fillRect(bx + 4, bot - 2, bw - 8, 2);
+  }
+  if (p.hasFlag){
+    const hx = p.facing > 0 ? bx + bw + 2 : bx - 2;
+    drawFlag(hx, by + bh - 4, 34, -p.facing, t);
+  }
+  if (jetOn()){
+    const jx = p.facing > 0 ? bx - 8 : bx + bw + 1, jy = by + 2;
+    if (p.thrust){
+      const fl = 9 + Math.random() * 7;
+      ctx.fillStyle = '#ffc23c'; ctx.beginPath(); ctx.moveTo(jx, jy + 15); ctx.lineTo(jx + 3.5, jy + 15 + fl); ctx.lineTo(jx + 7, jy + 15); ctx.fill();
+      ctx.fillStyle = '#ff7a1a'; ctx.beginPath(); ctx.moveTo(jx + 1.5, jy + 15); ctx.lineTo(jx + 3.5, jy + 15 + fl * .55); ctx.lineTo(jx + 5.5, jy + 15); ctx.fill();
+    }
+    ctx.fillStyle = '#e63946'; ctx.strokeStyle = '#2b2140'; ctx.lineWidth = 1.5;
+    rr(jx, jy, 7, 16, 3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#8b94a3'; ctx.fillRect(jx + 1, jy + 4, 5, 3);
+    if (!p.onGround && p.fuel < JET_FUEL){
+      const fy = p.y - (hatOn() ? 34 : 16);
+      ctx.fillStyle = 'rgba(43,33,64,.6)'; rr(bx - 2, fy, bw + 4, 5, 2.5); ctx.fill();
+      ctx.fillStyle = p.fuel > .4 ? '#ffc23c' : '#e63946';
+      rr(bx - 1, fy + 1, Math.max(0, (bw + 2) * p.fuel / JET_FUEL), 3, 1.5); ctx.fill();
+    }
+  }
+  const cat = catOn();
+  if (cat){
+    const tx = p.facing > 0 ? bx : bx + bw, tw = Math.sin(t * 4) * 3;
+    ctx.lineCap = 'round'; ctx.strokeStyle = '#2b2140'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(tx, by + bh - 6); ctx.quadraticCurveTo(tx - p.facing * 14, by + bh - 4, tx - p.facing * 12 + tw, by + bh - 20); ctx.stroke();
+    ctx.strokeStyle = '#d9a066'; ctx.lineWidth = 3; ctx.stroke();
+  }
+  // flaps
+  ctx.fillStyle = '#c78a4f'; ctx.strokeStyle = '#2b2140'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  if (!cat){
+  ctx.beginPath(); ctx.moveTo(bx + 1, by + 1); ctx.lineTo(bx - 4, by - 6); ctx.lineTo(bx + 10, by - 4); ctx.lineTo(bx + 12, by + 1); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx + bw - 1, by + 1); ctx.lineTo(bx + bw + 4, by - 6); ctx.lineTo(bx + bw - 10, by - 4); ctx.lineTo(bx + bw - 12, by + 1); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  // body
+  ctx.fillStyle = '#d9a066'; rr(bx, by, bw, bh, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#f0c890'; ctx.fillRect(bx + bw / 2 - 2.5, by + 1, 5, 7);
+  // face
+  const ex = p.facing * 1.5, ey = by + bh * .5;
+  ctx.fillStyle = '#2b2140'; circle(bx + 8 + ex, ey, 2.2); circle(bx + bw - 8 + ex, ey, 2.2);
+  ctx.fillStyle = '#fff'; circle(bx + 8.7 + ex, ey - .8, .8); circle(bx + bw - 7.3 + ex, ey - .8, .8);
+  ctx.fillStyle = 'rgba(242,139,130,.75)'; circle(bx + 5 + ex, ey + 4, 2); circle(bx + bw - 5 + ex, ey + 4, 2);
+  ctx.strokeStyle = '#2b2140'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(bx + bw / 2 + ex, ey + 3, planting ? 3.5 : 2.5, .15 * Math.PI, .85 * Math.PI); ctx.stroke();
+  if (p.hasFlag){
+    const hx = p.facing > 0 ? bx + bw : bx;
+    ctx.beginPath(); ctx.moveTo(hx - p.facing * 3, ey + 6); ctx.lineTo(hx + p.facing * 2, ey + 4); ctx.stroke();
+  }
+  drawCostume(bx, by, bw, bh, ey);
+}
+function drawCostume(bx, by, bw, bh, ey){
+  const p = player, ex = p.facing * 1.5, mx = bx + bw / 2 + ex;
+  ctx.lineJoin = 'round';
+  if (catOn()){
+    for (const s of [-1, 1]){
+      const c0 = s < 0 ? bx + 6 : bx + bw - 6;
+      ctx.fillStyle = '#d9a066'; ctx.strokeStyle = '#2b2140'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(c0 - 6, by + 2); ctx.lineTo(c0 + s, by - 10); ctx.lineTo(c0 + 6, by + 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#f28b82'; tri(c0 - 3, by + 1, c0 + s, by - 5, c0 + 3, by + 1);
+    }
+    ctx.fillStyle = '#f28b82'; tri(mx - 2, ey + .5, mx + 2, ey + .5, mx, ey + 2.5);
+    ctx.strokeStyle = '#2b2140'; ctx.lineWidth = 1; ctx.beginPath();
+    for (const s of [-1, 1]){ const wx = mx + s * 6; ctx.moveTo(wx, ey + 3); ctx.lineTo(wx + s * 9, ey + 1); ctx.moveTo(wx, ey + 4.5); ctx.lineTo(wx + s * 9, ey + 5.5); }
+    ctx.stroke();
+  }
+  if (hatOn()){
+    const hx = bx + bw / 2, hy = by - 1;
+    ctx.fillStyle = '#4b2d73'; ctx.strokeStyle = '#120b1f'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(hx, hy, 15, 3.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hx - 9, hy - 1); ctx.quadraticCurveTo(hx - 4, hy - 12, hx - p.facing * 8, hy - 25); ctx.quadraticCurveTo(hx + 3, hy - 12, hx + 9, hy - 1); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ff8a2a'; rr(hx - 8.5, hy - 6, 17, 4, 1); ctx.fill();
+    ctx.strokeStyle = '#ffe14d'; ctx.lineWidth = 1.2; ctx.strokeRect(hx - 2, hy - 6.5, 4, 5);
+  }
+}
+function draw(t){
+  tNow = t;
+  const hw = theme === 'halloween';
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  const prog = maxCam() ? 1 - camY / maxCam() : 0;
+  const g = ctx.createLinearGradient(0, 0, 0, viewH);
+  if (hw){
+    g.addColorStop(0, mix([58, 30, 98], [16, 8, 38], prog));
+    g.addColorStop(1, mix([255, 138, 61], [88, 40, 128], prog));
+  } else {
+    g.addColorStop(0, mix([143, 211, 255], [64, 110, 206], prog));
+    g.addColorStop(1, mix([214, 240, 255], [150, 190, 245], prog));
+  }
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, viewH);
+  if (hw){
+    for (const s of stars){ ctx.fillStyle = `rgba(255,250,230,${(.35 + .5 * Math.abs(Math.sin(t * s.tw + s.x))) * (1 - s.y)})`; circle(s.x, s.y * viewH, s.r); }
+    ctx.fillStyle = 'rgba(255,232,168,.18)'; circle(W - 70, 74, 46);
+    ctx.fillStyle = '#ffe8a8'; circle(W - 70, 74, 30);
+    ctx.fillStyle = 'rgba(214,190,120,.55)'; circle(W - 80, 66, 6); circle(W - 60, 84, 4.5); circle(W - 62, 64, 3);
+  } else { ctx.fillStyle = 'rgba(255,236,150,.9)'; circle(W - 60, 64, 24); }
+  const off = maxCam() - camY;
+  hills(off * .12, hw ? '#5a3a7e' : '#b3cfee', 150, .013, 30);
+  hills(off * .25, hw ? '#3e2760' : '#94b6dc', 95, .021, 22);
+
+  ctx.save(); ctx.translate(0, -camY);
+  clouds.slice(0, 3).forEach(drawCloud);
+  drawMountain();
+  drawGround();
+  for (const pl of plats) if (pl.kind !== 'ground' && pl !== summit) drawLedge(pl);
+  for (const pk of decor.pumpkins) pumpkin(pk.x, pk.y - 3, pk.s, t);
+  drawSummit(t);
+  for (const gh of decor.ghosts) ghost(gh, t);
+  for (const b of decor.bats) bat(b);
+  clouds.slice(3).forEach(c => { ctx.globalAlpha = .7; drawCloud(c); ctx.globalAlpha = 1; });
+  drawPlayer(t);
+  for (const p of parts){ ctx.save(); ctx.globalAlpha = Math.min(1, p.life); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-3, -2, 6, 4); ctx.restore(); }
+  ctx.textAlign = 'center'; ctx.font = '24px "Lilita One", sans-serif'; ctx.lineWidth = 5; ctx.lineJoin = 'round';
+  for (const p of pops){ ctx.globalAlpha = Math.min(1, p.life); ctx.strokeStyle = '#2b2140'; ctx.strokeText(p.text, p.x, p.y); ctx.fillStyle = '#ffc23c'; ctx.fillText(p.text, p.x, p.y); }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/* ---------- loop ---------- */
+let last = 0;
+function frame(ms){
+  const t = ms / 1000, dt = Math.min(1 / 30, last ? t - last : 0); last = t;
+  update(dt, t); draw(t);
+  requestAnimationFrame(frame);
+}
+function start(data){
+  if (data && data.save) Object.assign(save, data.save);
+  else {
+    loadSave();
+    // New game: items are lost, coins stay
+    let lost = false;
+    for (const id in ITEMS){ if (save[id]) lost = true; save[id] = false; save[id + 'On'] = true; }
+    persist();
+    if (lost) setTimeout(() => toast('New game! Your items are gone. Climb for coins to buy them back!'), 700);
+  }
+  $('#altOf').textContent = '/ ' + SUMMIT_M + ' m';
+  resize(); renderCoins(); setState('menu');
+  camY = maxCam();
+  requestAnimationFrame(frame);
+}
+try { window.claude?.hot?.snapshot?.(() => ({ save })); } catch(e){}
+const hot = window.claude?.hot;
+if (hot?.ready) hot.ready(start); else start(hot?.data ?? {});
+})();
+</script>
+
+</body></html>
